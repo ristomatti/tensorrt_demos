@@ -3,7 +3,9 @@ import threading
 import cv2
 import paho.mqtt.client as mqtt
 import numpy as np
+import json
 import pycuda.autoinit
+
 from utils.yolo_classes import get_cls_dict
 from utils.yolo import TrtYOLO
 from utils.visualization import BBoxVisualization
@@ -15,6 +17,21 @@ MQTT_RESULT_TOPIC_BASE = 'trt_yolo/result'
 INPUT_HW = (416, 416)
 YOLOV4_MODEL = 'yolov4-tiny-416'
 CONFIDENCE_TRESHOLD = 0.5
+
+# https://interviewbubble.com/typeerror-object-of-type-float32-is-not-json-serializable/
+class NumpyEncoder(json.JSONEncoder):
+    """ Special json encoder for numpy types """
+    def default(self, obj):
+        if isinstance(obj, (np.int_, np.intc, np.intp, np.int8,
+            np.int16, np.int32, np.int64, np.uint8,
+            np.uint16, np.uint32, np.uint64)):
+            return int(obj)
+        elif isinstance(obj, (np.float_, np.float16, np.float32,
+            np.float64)):
+            return float(obj)
+        elif isinstance(obj,(np.ndarray,)): #### This is the fix
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
 
 class TrtThread(threading.Thread):
 
@@ -46,16 +63,26 @@ class TrtThread(threading.Thread):
                 vis = BBoxVisualization(cls_dict)
                 img = vis.draw_bboxes(img, boxes, confs, clss)
 
-                # prepare & send image via mqtt
+                # Prepare and send result via MQTT
+                classes_topic = MQTT_RESULT_TOPIC_BASE + '/' + msg_id + '/classes'
+                image_topic = MQTT_RESULT_TOPIC_BASE + '/' + msg_id + '/image'
+
+                class_list = list(map(lambda x: cls_dict.get(x), clss))
+                confidences = confs
+                class_dict = dict(zip(class_list, confidences))
+                print('Detected classes', class_dict)
+                classes_payload = json.dumps(class_dict, cls=NumpyEncoder)
+
+                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 80]
+                image_payload = cv2.imencode('.jpg', img)[1].tostring()
+
                 client_thr = mqtt.Mosquitto()
                 client_thr.connect(MQTT_SERVER, 1883, 60)
                 client_thr.loop_start()
 
-                topic = MQTT_RESULT_TOPIC_BASE + '/' + msg_id + '/image'
-                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 50]
-                img_str = cv2.imencode('.jpg', img)[1].tostring()
+                client_thr.publish(image_topic, image_payload, 1, False)
+                client_thr.publish(classes_topic, classes_payload, 1, False)
 
-                client_thr.publish(topic, img_str, 1, False)
                 client_thr.loop_stop()
                 client_thr.disconnect()
         del self.trt_yolo
