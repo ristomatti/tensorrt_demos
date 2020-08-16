@@ -16,7 +16,7 @@ MQTT_RESULT_TOPIC_BASE = 'trt_yolo/result'
 
 INPUT_HW = (416, 416)
 YOLOV4_MODEL = 'yolov4-tiny-416'
-CONFIDENCE_TRESHOLD = 0.5
+CONFIDENCE_TRESHOLD = 0.4
 
 # https://interviewbubble.com/typeerror-object-of-type-float32-is-not-json-serializable/
 class NumpyEncoder(json.JSONEncoder):
@@ -67,11 +67,15 @@ class TrtThread(threading.Thread):
                 classes_topic = MQTT_RESULT_TOPIC_BASE + '/' + msg_id + '/classes'
                 image_topic = MQTT_RESULT_TOPIC_BASE + '/' + msg_id + '/image'
 
-                class_list = list(map(lambda x: cls_dict.get(x), clss))
-                confidences = confs
-                class_dict = dict(zip(class_list, confidences))
-                print('Detected classes', class_dict)
-                classes_payload = json.dumps(class_dict, cls=NumpyEncoder)
+                class_names = list(map(lambda x: cls_dict.get(x), clss))
+                class_score_tuples = list(zip(class_names, confs))
+
+                detections = []
+                for class_name, score in class_score_tuples:
+                    detections.append({'class': class_name, 'score': score})
+                print('Detections:', detections)
+
+                classes_payload = json.dumps(detections, cls=NumpyEncoder)
 
                 encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 80]
                 image_payload = cv2.imencode('.jpg', img)[1].tostring()
