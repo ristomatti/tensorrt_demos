@@ -54,13 +54,15 @@ class TrtThread(threading.Thread):
         self.running = True
         while self.running:
             if image is not None:
-                print('Found image with msg_id: ', msg_id)
+                #print('Found image with msg_id: ', msg_id)
                 img = image
                 image = None
+
                 tic = time.time()
                 boxes, confs, clss = self.trt_yolo.detect(img, self.conf_th)
                 toc = time.time()
-                print('Detection time: ', (toc - tic))
+                inference_time = toc - tic
+
                 (H, W) = img.shape[:2]
                 cls_dict = get_cls_dict(80)
                 vis = BBoxVisualization(cls_dict)
@@ -75,8 +77,11 @@ class TrtThread(threading.Thread):
 
                 detections = []
                 for class_name, score in class_score_tuples:
+                    score = round(score, 2)
                     detections.append({'class': class_name, 'score': score})
-                print('Detections:', detections)
+
+                print('Processed msg_id {0:15s} in {1:.2f}s, classes: {2}'
+                        .format(msg_id, inference_time, detections))
 
                 classes_payload = json.dumps(detections, cls=NumpyEncoder)
 
