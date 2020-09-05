@@ -16,7 +16,7 @@ MQTT_RESULT_TOPIC_BASE = 'trt_yolo/result'
 
 INPUT_HW = (416, 416)
 YOLOV4_MODEL = 'yolov4-tiny-416'
-CONFIDENCE_TRESHOLD = 0.4
+CONFIDENCE_TRESHOLD = 0.6
 
 # https://interviewbubble.com/typeerror-object-of-type-float32-is-not-json-serializable/
 class NumpyEncoder(json.JSONEncoder):
