@@ -16,7 +16,7 @@ MQTT_RESULT_TOPIC_BASE = 'trt_yolo/result'
 
 INPUT_HW = (416, 416)
 YOLOV4_MODEL = 'yolov4-tiny-416'
-CONFIDENCE_TRESHOLD = 0.6
+CONFIDENCE_THRESHOLD = 0.6
 
 # https://interviewbubble.com/typeerror-object-of-type-float32-is-not-json-serializable/
 class NumpyEncoder(json.JSONEncoder):
@@ -145,7 +145,7 @@ mqttThread = threading.Thread(
         )
 mqttThread.start()
 
-trt_thread = TrtThread(YOLOV4_MODEL, conf_th=CONFIDENCE_TRESHOLD)
+trt_thread = TrtThread(YOLOV4_MODEL, conf_th=CONFIDENCE_THRESHOLD)
 trt_thread.start()  # start the child thread
 while th_abort == False:
     time.sleep(1)
