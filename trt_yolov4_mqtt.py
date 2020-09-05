@@ -4,19 +4,20 @@ import cv2
 import paho.mqtt.client as mqtt
 import numpy as np
 import json
+import pycuda.driver as cuda
 import pycuda.autoinit
 
 from utils.yolo_classes import get_cls_dict
-from utils.yolo import TrtYOLO
+from utils.yolo_with_plugins import TrtYOLO
 from utils.visualization import BBoxVisualization
 
 MQTT_SERVER = '192.168.5.20'
 MQTT_DETECT_TOPIC = 'trt_yolo/detect/+'
 MQTT_RESULT_TOPIC_BASE = 'trt_yolo/result'
 
-INPUT_HW = (416, 416)
-YOLOV4_MODEL = 'yolov4-tiny-416'
-CONFIDENCE_THRESHOLD = 0.6
+INPUT_HW = (288, 288)
+YOLOV4_MODEL = 'yolov4-288'
+CONFIDENCE_THRESHOLD = 0.83
 
 # https://interviewbubble.com/typeerror-object-of-type-float32-is-not-json-serializable/
 class NumpyEncoder(json.JSONEncoder):
@@ -40,12 +41,14 @@ class TrtThread(threading.Thread):
         self.model = model
         self.conf_th = conf_th
         self.trt_yolo = None   # to be created when run
+        self.cuda_ctx = None  # to be created when run
         self.running = False
 
     def run(self):
         global image
 
         print('TrtThread: loading the TRT YOLO engine...')
+        self.cuda_ctx = cuda.Device(0).make_context()  # GPU 0
         self.trt_yolo = TrtYOLO(self.model, INPUT_HW)
         print('TrtThread: start running...waiting for images to analyze')
         self.running = True
@@ -90,6 +93,8 @@ class TrtThread(threading.Thread):
                 client_thr.loop_stop()
                 client_thr.disconnect()
         del self.trt_yolo
+        self.cuda_ctx.pop()
+        del self.cuda_ctx
         print('TrtThread: stopped...')
 
     def stop(self):
@@ -144,6 +149,8 @@ mqttThread = threading.Thread(
         args=(mqttThreadEvent,)
         )
 mqttThread.start()
+
+cuda.init()  # init pycuda driver
 
 trt_thread = TrtThread(YOLOV4_MODEL, conf_th=CONFIDENCE_THRESHOLD)
 trt_thread.start()  # start the child thread
