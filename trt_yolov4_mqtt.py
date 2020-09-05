@@ -63,7 +63,6 @@ class TrtThread(threading.Thread):
                 toc = time.time()
                 inference_time = toc - tic
 
-                (H, W) = img.shape[:2]
                 cls_dict = get_cls_dict(80)
                 vis = BBoxVisualization(cls_dict)
                 img = vis.draw_bboxes(img, boxes, confs, clss)
@@ -80,7 +79,7 @@ class TrtThread(threading.Thread):
                     score = round(score, 2)
                     detections.append({'class': class_name, 'score': score})
 
-                print('Processed msg_id {0:15s} in {1:.2f}s, classes: {2}'
+                print('Processed msg_id {0:15s} in {1:.2f}s, result: {2}'
                         .format(msg_id, inference_time, detections))
 
                 classes_payload = json.dumps(detections, cls=NumpyEncoder)
